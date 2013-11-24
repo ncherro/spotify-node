@@ -18,6 +18,10 @@
     next: function(e) {
       e.preventDefault();
       socket.emit('next');
+    },
+    playTrack: function(e) {
+      e.preventDefault();
+      socket.emit('playTrack', $(this).attr('rel'));
     }
   };
 
@@ -26,16 +30,19 @@
     $artist: null,
     $album: null,
     $length: null,
-    trackChanged: function(track) {
+    trackChanged: function(track, current_track) {
       if (typeof track === 'object') {
         info.$track.text(track.name);
-        info.$length.text(track.duration);
+        var minutes = Math.floor(track.duration / 60),
+            seconds = track.duration - minutes * 60;
+        info.$length.text(minutes + ":" + seconds + (seconds < 10 ? '0' : ''));
         info.$album.text(track.album.name);
         var artists = [], i, len;
         for (i=0, len=i < track.artists.length; i < len; i++) {
           artists.push(track.artists[i].name);
         }
         info.$artist.text(artists.join(', '));
+        tracklist.currentTrackChanged(current_track);
       } else {
         info.$track.add(info.$artist).add(info.$album).add(info.$length).text('');
       }
@@ -43,7 +50,22 @@
   };
 
   var tracklist = {
-    changed: function(tracklist) {
+    $list: null,
+    changed: function(tracks, current_track) {
+      var html = '', track;
+      for (var i=0, len=tracks.length; i < len; i++) {
+        track = tracks[i];
+        css_class = i == current_track ? ' class="on"' : '';
+        html += '<li rel="' + i + '"' + css_class + '>';
+        html += track.name;
+        html += '</li>';
+      }
+      tracklist.$list.html(html);
+      tracklist.$list.find('li').click(controls.playTrack);
+    },
+    currentTrackChanged: function(current_track) {
+      tracklist.$list.find('li').removeClass('on').end().
+        find('[rel=' + current_track + ']').addClass('on');
     }
   };
 
@@ -64,6 +86,8 @@
     info.$artist = $('#current-artist');
     info.$length = $('#current-length');
 
+    tracklist.$list = $('#tracklist');
+
 
     // SOCKET
     socket = io.connect('http://localhost:3000'); // connect to our node.js app
@@ -79,6 +103,9 @@
           controls.$playpause.text('Pause');
           break;
         case 'paused':
+          controls.$playpause.text('Play');
+          break;
+        case 'stopped':
           controls.$playpause.text('Play');
           break;
       }

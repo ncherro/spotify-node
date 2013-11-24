@@ -58,7 +58,11 @@ var bbox = {
   },
 
   playTrack: function(cur) {
-    var cur = cur || bbox.current_track;
+    if (cur) {
+      bbox.current_track = parseInt(cur, 10);
+    } else {
+      cur = bbox.current_track;
+    }
     spotify.player.play(bbox.tracklist[cur]);
     bbox.setState('playing');
   },
@@ -67,9 +71,9 @@ var bbox = {
     bbox.state = state;
     io.sockets.emit('player_state_changed', bbox.state);
     if (state === 'stopped') {
-      io.sockets.emit('track_changed', null);
+      io.sockets.emit('track_changed', null, null);
     } else if (bbox.tracklist[bbox.current_track]) {
-      io.sockets.emit('track_changed', bbox.tracklist[bbox.current_track]);
+      io.sockets.emit('track_changed', bbox.tracklist[bbox.current_track], bbox.current_track);
     }
   }
 };
@@ -133,10 +137,13 @@ io.sockets.on('connection', function (socket) {
 
   // set current play state on this socket
   socket.emit('player_state_changed', bbox.state);
+
   // set current track info on this socket
   if (bbox.state !== 'stopped' && bbox.tracklist[bbox.current_track]) {
     socket.emit('track_changed', bbox.tracklist[bbox.current_track]);
   }
+
+  socket.emit('tracklist_changed', bbox.tracklist, bbox.current_track);
 
 
   // ui listeners
@@ -147,7 +154,7 @@ io.sockets.on('connection', function (socket) {
   socket.on('prev', bbox.playPrev);
 
   socket.on('playTrack', function(i) {
-    console.log("Play track " + i);
+    bbox.playTrack(i);
   });
 
 
