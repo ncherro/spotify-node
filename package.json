@@ -1,0 +1,13 @@
+{
+  "name": "hello-world",
+  "description": "hello world test app",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "express": "3.4.4",
+    "socket.io": "0.9.16",
+    "speaker": "0.0.10",
+    "lame": "1.0.3",
+    "spotify-web": "0.1.3"
+  }
+}
