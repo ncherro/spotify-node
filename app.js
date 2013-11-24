@@ -14,27 +14,66 @@ var express = require('express'),
 
       // Player
       player_end_of_track: 'player_end_of_track'
-    },
-
-    bbox = {
-      sockets: 0,
-      tracklist: [],
-      current_track: 0,
-
-      // functions
-      playNext: function() {
-        if ((bbox.current_track + 1) > bbox.tracklist.length) {
-          // do nothing
-          console.log("End of tracklist");
-          bbox.state = 'stopped';
-        } else {
-          console.log("Playing track " + bbox.current_track);
-          bbox.current_track += 1;
-          spotify.player.play(bbox.tracklist[bbox.current_track]);
-          bbox.state = 'playing';
-        }
-      }
     };
+
+
+// Our API
+var bbox = {
+  sockets: 0,
+  tracklist: [],
+  current_track: 0,
+  state: 'paused',
+
+  // functions
+  playPause: function() {
+    if (bbox.state == 'playing') {
+      spotify.player.pause();
+      bbox.setState('paused');
+    } else {
+      spotify.player.resume();
+      bbox.setState('playing');
+    }
+  },
+
+  playNext: function() {
+    if ((bbox.current_track + 1) > bbox.tracklist.length) {
+      // do nothing
+      spotify.player.stop();
+      bbox.setState('stopped');
+    } else {
+      bbox.current_track += 1;
+      bbox.playTrack();
+    }
+  },
+
+  playPrev: function() {
+    if ((bbox.current_track - 1) < 0) {
+      // do nothing
+      spotify.player.stop();
+      bbox.setState('stopped');
+    } else {
+      bbox.current_track -= 1;
+      bbox.playTrack();
+    }
+  },
+
+  playTrack: function(cur) {
+    var cur = cur || bbox.current_track;
+    spotify.player.play(bbox.tracklist[cur]);
+    bbox.setState('playing');
+  },
+
+  setState: function(state) {
+    bbox.state = state;
+    io.sockets.emit('player_state_changed', bbox.state);
+    if (state === 'stopped') {
+      io.sockets.emit('track_changed', null);
+    } else if (bbox.tracklist[bbox.current_track]) {
+      io.sockets.emit('track_changed', bbox.tracklist[bbox.current_track]);
+    }
+  }
+};
+
 
 
 // listen at localhost:3000
@@ -59,7 +98,6 @@ spotify.ready(function() {
       // something went wrong
     } else {
       bbox.tracklist = bbox.tracklist.concat(results.tracks);
-      console.log("There are " + bbox.tracklist.length + " tracks in our tracklist");
       if (bbox.state != 'playing') {
         bbox.playNext();
       }
@@ -69,7 +107,6 @@ spotify.ready(function() {
 
 // spotify event listeners
 spotify.player.on(spotify_events.player_end_of_track, function(err, player) {
-  console.log("End of track");
   bbox.playNext();
 });
 
@@ -85,29 +122,35 @@ spotify.login(
 
 // initialize websockets
 io.sockets.on('connection', function (socket) {
+  // add to the users count
   bbox.sockets += 1;
-  console.log("There are " + bbox.sockets + " sockets");
 
-  // broadcasters
+  // initialize
   socket.emit;
 
   // broadast user count to ALL sockets
   io.sockets.emit('users_count', bbox.sockets);
 
+  // set current play state on this socket
+  socket.emit('player_state_changed', bbox.state);
+  // set current track info on this socket
+  if (bbox.state !== 'stopped' && bbox.tracklist[bbox.current_track]) {
+    socket.emit('track_changed', bbox.tracklist[bbox.current_track]);
+  }
+
+
   // ui listeners
-  socket.on('my other event', function (data) {
-    console.log(data);
+  socket.on('playpause', bbox.playPause);
+
+  socket.on('next', bbox.playNext);
+
+  socket.on('prev', bbox.playPrev);
+
+  socket.on('playTrack', function(i) {
+    console.log("Play track " + i);
   });
 
-  socket.on('play', function(a, b, c) {
-    console.log(a, b, c);
-    spotify.player.play();
-  });
 
-  socket.on('pause', function(a, b, c) {
-    console.log(a, b, c);
-    spotify.player.pause();
-  });
 
   socket.on('disconnect', function () {
     bbox.sockets -= 1;
