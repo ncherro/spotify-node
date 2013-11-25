@@ -19,7 +19,8 @@ var express = require('express'),
 
 // Our API
 var bbox = {
-  sockets: 0,
+  users_count: 0,
+
   tracklist: [],
   current_track: 0,
   state: 'paused',
@@ -127,13 +128,13 @@ spotify.login(
 // initialize websockets
 io.sockets.on('connection', function (socket) {
   // add to the users count
-  bbox.sockets += 1;
+  bbox.users_count += 1;
 
   // initialize
   socket.emit;
 
   // broadast user count to ALL sockets
-  io.sockets.emit('users_count', bbox.sockets);
+  io.sockets.emit('users_count', bbox.users_count);
 
   // set current play state on this socket
   socket.emit('player_state_changed', bbox.state);
@@ -160,9 +161,9 @@ io.sockets.on('connection', function (socket) {
 
 
   socket.on('disconnect', function () {
-    bbox.sockets -= 1;
+    bbox.users_count -= 1;
     // broadast to EVERY OTHER socket
-    socket.broadcast.emit('users_count', bbox.sockets);
+    socket.broadcast.emit('users_count', bbox.users_count);
   });
 
 });
